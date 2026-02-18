@@ -6,7 +6,7 @@ koba-scraper/
 ├── notes/
 │   └── plan.txt
 
-├── web/
+├── docs/
 │   ├── index.html                    # landing page (choose kbeauty / uk)
 
 │   ├── shared/                       # shared web assets

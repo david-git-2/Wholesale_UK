@@ -4,12 +4,12 @@
   }
 
   function getHrefs() {
-    // Works if structure is: /web/index.html, /web/kbeauty/*, /web/uk/*
+    // Works if structure is: /docs/index.html, /docs/kbeauty/*, /docs/uk/*
     // If you're using /docs instead of /web, change "web" to "docs" below.
 
     const baseRoot = isIn("kbeauty") || isIn("uk")
-      ? ".."          // from /web/kbeauty/* or /web/uk/* to /web/
-      : ".";          // from /web/ to /web/
+      ? ".."          // from /docs/kbeauty/* or /docs/uk/* to /docs/
+      : ".";          // from /docs/ to /docs/
 
     return {
       HOME_HREF: `${baseRoot}/index.html`,

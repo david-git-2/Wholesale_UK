@@ -12,7 +12,7 @@ from openpyxl.utils import get_column_letter
 
 load_dotenv()
 
-INPUT_JSON = Path("web/kbeauty/data/koba_data.json")
+INPUT_JSON = Path("docs/kbeauty/data/koba_data.json")
 OUTPUT_DIR = Path("outputs/business_images")
 
 # Read from ENV (with safe defaults)
@@ -81,7 +81,7 @@ def main():
 
     items = json.loads(INPUT_JSON.read_text(encoding="utf-8"))
     if not isinstance(items, list):
-        raise SystemExit("web/kbeauty/data/koba_data.json must be a JSON array (list of products)")
+        raise SystemExit("docs/kbeauty/data/koba_data.json must be a JSON array (list of products)")
 
     in_stock = [p for p in items if str(p.get("status", "")).lower() == "in_stock"]
 

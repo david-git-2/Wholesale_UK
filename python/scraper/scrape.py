@@ -17,7 +17,7 @@ LOGIN_POST = f"{BASE}/login"
 CSRF_COOKIE_URL = f"{BASE}/sanctum/csrf-cookie"
 PRODUCTS_PATH = "/dashboard/products"
 
-OUTFILE = "web/kbeauty/data/koba_data.json"
+OUTFILE = "docs/kbeauty/data/koba_data.json"
 
 
 def get_env(name: str, default: Optional[str] = None) -> Optional[str]:

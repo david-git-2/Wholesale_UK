@@ -17,7 +17,7 @@ This project:
 - Logs into **kobareseller.com**
 - Scrapes product data using a search filter (example: `cosrx`)
 - Collects **all pages**
-- Saves results to `web/kbeauty/data/koba_data.json`
+- Saves results to `docs/kbeauty/data/koba_data.json`
 - Displays products on a live website
 - Can export products to **Excel (with or without embedded images)**
 
@@ -220,7 +220,7 @@ make business_without_images
 
 | File                             | Description                |
 | -------------------------------- | -------------------------- |
-| `web/kbeauty/data/koba_data.json`                 | Scraped product data       |
+| `docs/kbeauty/data/koba_data.json`                 | Scraped product data       |
 | `docs/products_with_images.xlsx` | Excel with embedded images |
 | `docs/products.xlsx`             | Excel without images       |
 
@@ -229,7 +229,7 @@ make business_without_images
 ## 🚀 Step 8: Update the live website (Git only)
 
 ```bash
-git add web/kbeauty/data/koba_data.json
+git add docs/kbeauty/data/koba_data.json
 git commit -m "Update product data"
 git push
 ```
