@@ -1,0 +1,91 @@
+/* Page-specific polish; everything scoped under .ordersShell */
+.ordersShell {
+  max-width: 1150px;
+  margin: 0 auto;
+  padding: 14px;
+}
+
+.ordersTop {
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.ordersTitle {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: .2px;
+}
+
+.ordersTopLeft {
+  min-width: 220px;
+}
+
+.ordersTopRight {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-direction: column;
+}
+
+.ordersUser {
+  font-weight: 800;        /* ✅ bold email */
+  text-align: right;       /* ✅ right aligned */
+  line-height: 1.2;
+}
+
+.ordersUser .orderMeta,
+.ordersUser #who {
+  font-weight: 800;
+}
+
+/* icon buttons */
+.btnIcon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btnIcon .i {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+}
+
+.btnIcon .i svg {
+  width: 18px;
+  height: 18px;
+}
+
+@media (max-width: 520px) {
+  .btnIcon .btnText {
+    display: none; /* icons only on small screens */
+  }
+}
+
+.ordersControls {
+  margin-bottom: 14px;
+}
+
+/* search box with icon */
+.ordersSearchWrap {
+  position: relative;
+  width: 100%;
+}
+
+.searchIco {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: .7;
+  width: 18px;
+  height: 18px;
+}
+
+.ordersSearch {
+  padding-left: 38px !important; /* make room for icon */
+}

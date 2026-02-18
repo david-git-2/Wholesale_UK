@@ -1,0 +1,5 @@
+.env
+*.xlsx
+service_account.json
+out_images
+python/pc/credentials/

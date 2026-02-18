@@ -1,0 +1,30 @@
+<nav class="bwNav" role="navigation" aria-label="Main">
+  <div class="bwNavLeft">
+    <a class="bwNavBrand" href="{{HOME_HREF}}">Brand Wala</a>
+
+    <div class="bwNavLinks">
+      <a class="bwNavLink" data-nav="home" href="{{HOME_HREF}}">Home</a>
+      <a class="bwNavLink" data-nav="kbeauty" href="{{KBEAUTY_HREF}}">KBeauty</a>
+      <a class="bwNavLink" data-nav="uk" href="{{UK_HREF}}">UK</a>
+    </div>
+  </div>
+
+  <div class="bwNavRight">
+    <!-- login badge slot (Google button or loading badge) -->
+    <div class="bwAuthWrap">
+      <div id="loginSection" class="bwLoginBadge"></div>
+
+      <div id="userSection" class="bwUserBadge" style="display:none;">
+        <span id="userEmail" class="bwUserEmail"></span>
+
+        <!-- <button type="button" class="btn bwOrdersBtn" onclick="location.href='./orders.html'">
+          My Orders
+        </button> -->
+
+        <button type="button" class="btn bwLogoutBtn" onclick="logout()">
+          Logout
+        </button>
+      </div>
+    </div>
+  </div>
+</nav>

@@ -1,0 +1,112 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>My Orders • Brand Wala</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./assets/app.css" />
+  <!-- ✅ Page-specific CSS -->
+  <link rel="stylesheet" href="./assets/orders.page.css" />
+</head>
+
+<body>
+  <div class="ordersShell">
+    <!-- Top Bar -->
+    <header class="ordersTop">
+      <div class="ordersTopLeft">
+        <h1 class="ordersTitle">My Orders</h1>
+        <div class="orderMeta" id="who">Loading…</div>
+      </div>
+
+      <!-- ✅ email / role aligned right + bold -->
+      <div class="ordersTopRight">
+        <div class="ordersUser" id="whoRight"></div>
+
+        <div class="btnRow">
+          <button class="btn btnIcon" type="button" onclick="location.href='./index.html'" title="Back to Shop">
+            <span class="i" aria-hidden="true">
+              <!-- arrow-left -->
+              <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="btnText">Shop</span>
+          </button>
+
+          <button class="btn btnIcon" type="button" id="refreshBtn" title="Refresh">
+            <span class="i" aria-hidden="true">
+              <!-- refresh -->
+              <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 10-3.3 6.9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M21 3v7h-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="btnText">Refresh</span>
+          </button>
+
+          <button class="btn btnIcon btnDanger" type="button" onclick="logout()" title="Logout">
+            <span class="i" aria-hidden="true">
+              <!-- logout -->
+              <svg viewBox="0 0 24 24"><path d="M10 17l1 1a2 2 0 002 0l7-7-7-7a2 2 0 00-2 0l-1 1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 12H3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </span>
+            <span class="btnText">Logout</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Controls -->
+    <section class="ordersControls">
+      <div class="ordersChips" id="statusChips">
+        <button class="ordersChip active" type="button" data-filter="all">All</button>
+        <button class="ordersChip" type="button" data-filter="pending">Pending</button>
+        <button class="ordersChip" type="button" data-filter="confirmed">Confirmed</button>
+        <button class="ordersChip" type="button" data-filter="approved">Approved</button>
+        <button class="ordersChip" type="button" data-filter="shipped">Shipped</button>
+        <button class="ordersChip" type="button" data-filter="deleted">Deleted</button>
+      </div>
+
+      <div class="ordersSearchRow">
+        <div class="ordersSearchWrap">
+          <span class="i searchIco" aria-hidden="true">
+            <!-- search -->
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-3.2-3.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </span>
+          <input
+            id="q"
+            class="ordersSearch"
+            placeholder="Search by SL / order id / product / phone / district…"
+          />
+        </div>
+
+        <select id="sort" class="ordersSelect">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="total_desc">Total high → low</option>
+          <option value="total_asc">Total low → high</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- List -->
+    <main id="ordersList" class="ordersList"></main>
+  </div>
+
+  <!-- JS (ORDER MATTERS) -->
+  <script src="./config.js"></script>
+  <script src="../shared/auth.js"></script>
+  <script src="./assets/api.js"></script>
+
+  <script src="./assets/orders.core.js"></script>
+  <script src="./assets/orders.ui.js"></script>
+  <script src="./assets/orders.page.js"></script>
+
+  <!-- ✅ small helper to mirror "who" into right side -->
+  <script>
+    (function () {
+      const left = document.getElementById("who");
+      // const right = document.getElementById("whoRight");
+      if (!left || !right) return;
+      const sync = () => { right.innerHTML = left.innerHTML || ""; };
+      const obs = new MutationObserver(sync);
+      obs.observe(left, { childList: true, subtree: true, characterData: true });
+      sync();
+    })();
+  </script>
+</body>
+</html>
