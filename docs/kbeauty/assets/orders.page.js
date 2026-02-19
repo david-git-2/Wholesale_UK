@@ -185,7 +185,7 @@
     renderInitialSkeleton(6);
 
     const payload = {
-      action: "list_orders",
+      action: "kbeauty_list_orders",
       email: user.email,
       include_items: true,
       limit: 100
@@ -194,7 +194,7 @@
     const data = await post(payload);
 
     if (!data.success) {
-      err("list_orders failed", data);
+      err("kbeauty_list_orders failed", data);
       alert(data.error || "Failed to load orders");
       // show empty state instead of leaving skeleton
       UI().renderEmpty?.(data.error || "Failed to load orders");
@@ -250,16 +250,16 @@
             return;
           }
 
-          const payload = { action: "delete_order", email: STATE.user.email, order_id: orderId };
+          const payload = { action: "kbeauty_delete_order", email: STATE.user.email, order_id: orderId };
           const r = await post(payload);
 
           if (!r.success) {
-            err("delete_order failed", r);
+            err("kbeauty_delete_order failed", r);
             alert(r.error || "Delete failed");
             return;
           }
 
-          log("delete_order success", r);
+          log("kbeauty_delete_order success", r);
           await loadOrders();
         };
       }
@@ -271,7 +271,7 @@
 
           const items = C().readItemsFromCard(card);
 
-          log("Items payload (update_order)", {
+          log("Items payload (kbeauty_update_order)", {
             orderId,
             itemsCount: items.length,
             sample: items.slice(0, 2)
@@ -284,7 +284,7 @@
           }
 
           const payload = {
-            action: "update_order",
+            action: "kbeauty_update_order",
             email: STATE.user.email,
             order_id: orderId,
             items
@@ -300,12 +300,12 @@
           const r = await post(payload);
 
           if (!r.success) {
-            err("update_order failed", r);
+            err("kbeauty_update_order failed", r);
             alert(r.error || "Update failed");
             return;
           }
 
-          log("update_order success", r);
+          log("kbeauty_update_order success", r);
           await loadOrders();
         };
       }
@@ -331,7 +331,7 @@
           }
 
           const payload = {
-            action: "update_order",
+            action: "kbeauty_update_order",
             email: STATE.user.email,
             order_id: orderId,
             items,
@@ -343,7 +343,7 @@
           const r = await post(payload);
 
           if (!r.success) {
-            err("status update_order failed", r);
+            err("status kbeauty_update_order failed", r);
             alert(r.error || "Status change failed");
             return;
           }

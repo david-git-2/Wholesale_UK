@@ -30,7 +30,7 @@ function readOrderRow_(ordersSheet, orderId) {
 
 // ============================
 // Soft delete order (Pending only)
-// body: { action:"delete_order", email, order_id }
+// body: { action:"kbeauty_delete_order", email, order_id }
 // ============================
 function handleDeleteOrder(body) {
   const email = String(body.email || "").trim();
@@ -109,7 +109,7 @@ function handleDeleteOrder(body) {
 
 // ============================
 // Hard delete shipped items rows (Admin only)
-// body: { action:"hard_delete_shipped_items", email, order_id }
+// body: { action:"kbeauty_hard_delete_shipped_items", email, order_id }
 // ============================
 function handleHardDeleteShippedItems(body) {
   const email = String(body.email || "").trim();

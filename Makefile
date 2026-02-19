@@ -7,3 +7,5 @@ business: scrape
 business_without_images: scrape
 	python python/scraper/export_excel.py
 
+pc:
+	python python/scraper/export_pc.py

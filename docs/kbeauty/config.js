@@ -7,7 +7,7 @@ window.BW_CONFIG = {
 
 
 window.BW_CART_CONFIG = {
-  KEY: "bw_cart_v1",
+  KEY: "kbeauty_cart",
   DATA_URL: "../kbeauty/data/koba_data.json",
   BRANDS_URL: "../kbeauty/data/brands.json",
   COD_RATE: 0.01,

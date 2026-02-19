@@ -5,9 +5,6 @@
   <title>Brand Wala</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Your CSS -->
-     <link rel="stylesheet" href="../shared/shared.css" />
-
   <link rel="stylesheet" href="./assets/app.css" />
 
   <style>
@@ -16,8 +13,6 @@
       50% { opacity:1 }
       100% { opacity:.25 }
     }
-
-    /* small helper style for inline lucide icons */
     .i{
       width:16px;
       height:16px;
@@ -31,28 +26,25 @@
   <!-- ✅ Shared navbar mounts here (contains login/logout UI) -->
   <div id="bwNavMount"></div>
 
-  <div id="bwNavMount"></div>
-
-<!-- ✅ MY ORDERS BUTTON (shows only when logged in) -->
-<div id="myOrdersWrap" style="display:none; padding:10px 14px;">
-  <a id="myOrdersBtn" href="./orders.html" style="
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
-    padding:8px 12px;
-    border:1px solid #e2e8f0;
-    border-radius:10px;
-    background:#fff;
-    color:#0f172a;
-    text-decoration:none;
-    font-weight:600;
-    font-size:13px;
-  ">
-    <i data-lucide="package" class="i"></i>
-    My Orders
-  </a>
-</div>
-
+  <!-- ✅ MY ORDERS BUTTON (shows only when logged in) -->
+  <div id="myOrdersWrap" style="display:none; padding:10px 14px;">
+    <a id="myOrdersBtn" href="./orders.html" style="
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border:1px solid #e2e8f0;
+      border-radius:10px;
+      background:#fff;
+      color:#0f172a;
+      text-decoration:none;
+      font-weight:600;
+      font-size:13px;
+    ">
+      <i data-lucide="package" class="i"></i>
+      My Orders
+    </a>
+  </div>
 
   <!-- ✅ LOGIN LOADER OVERLAY -->
   <div id="loginOverlay" style="
@@ -132,8 +124,7 @@
             <option value="final_poly_desc">Sort: Final (Poly) (High→Low)</option>
           </select>
 
-          <!-- Optional: quick clear search (won't break anything) -->
-          <button class="btn" type="button" onclick="document.getElementById('q').value=''; document.getElementById('q').dispatchEvent(new Event('input'));">
+          <button class="btn" type="button" id="clearBtn">
             <i data-lucide="x-circle" class="i"></i>
             Clear
           </button>
@@ -204,15 +195,23 @@
   </script>
 
   <!-- JS (ORDER MATTERS) -->
-  <script src="./config.js"></script>
+  <script src="../kbeauty/config.js"></script>
   <script src="../shared/nav.js"></script>
   <script src="../shared/auth.js"></script>
+
   <script src="./assets/api.js"></script>
+
+  <!-- If you already have these, keep them -->
   <script src="./assets/cart.stock.js"></script>
   <script src="./assets/cart.math.js"></script>
   <script src="./assets/cart.ui.js"></script>
   <script src="./assets/cart.core.js"></script>
-  <script src="./assets/app.js"></script>
 
+
+<script src="./assets/uk.orders.api.js"></script>
+<script src="./assets/cart.checkout.uk.js"></script>
+
+  <!-- Our UI renderer -->
+  <script src="./assets/app.js"></script>
 </body>
 </html>

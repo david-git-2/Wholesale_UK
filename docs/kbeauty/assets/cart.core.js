@@ -257,7 +257,7 @@ window.BW_CART = (() => {
       });
 
       const payload = {
-        action: "create_order",
+        action: "kbeauty_create_order",
         email: user.email,
         created_at: new Date().toISOString(),
         total: totalPrice(),

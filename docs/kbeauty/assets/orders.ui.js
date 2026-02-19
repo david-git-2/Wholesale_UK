@@ -252,7 +252,7 @@
       else b.style.display = "";
     });
 
-    const del = card.querySelector('button[data-act="delete_order"]');
+    const del = card.querySelector('button[data-act="kbeauty_delete_order"]');
     if (del) {
       if (isAdmin) {
         del.style.display = "";
@@ -264,7 +264,7 @@
       }
     }
 
-    const pdel = card.querySelector('button[data-act="permanent_delete_order"]');
+    const pdel = card.querySelector('button[data-act="permanent_kbeauty_delete_order"]');
     if (pdel) {
       if (!isAdmin) {
         pdel.style.display = "none";
@@ -283,7 +283,7 @@
     if (DETAILS_CACHE.has(orderId)) return DETAILS_CACHE.get(orderId).order;
 
     const res = await C().api({
-      action: "get_order_details",
+      action: "kbeauty_get_order_details",
       email: user.email,
       order_id: orderId
     });
@@ -432,7 +432,7 @@
 
     try {
       const res = await C().api({
-        action: "get_order_details",
+        action: "kbeauty_get_order_details",
         email: user.email,
         order_id: orderId
       });
@@ -466,7 +466,7 @@
     btnDelete.style.cssText = UI.iconBtnStyle("danger");
     btnDelete.innerHTML = ico(ICON.trash, 18);
     btnDelete.title = "Delete";
-    btnDelete.setAttribute("data-act", "delete_order");
+    btnDelete.setAttribute("data-act", "kbeauty_delete_order");
 
     if (!isAdmin) {
       btnDelete.disabled = (status !== "Pending");
@@ -481,7 +481,7 @@
     btnPermanent.style.cssText = UI.iconBtnStyle("dangerSolid");
     btnPermanent.innerHTML = ico(ICON.skull, 18);
     btnPermanent.title = "Permanent delete (Shipped/Cancelled only)";
-    btnPermanent.setAttribute("data-act", "permanent_delete_order");
+    btnPermanent.setAttribute("data-act", "permanent_kbeauty_delete_order");
 
     if (!isAdmin) {
       btnPermanent.style.display = "none";
@@ -699,13 +699,13 @@
       const act = btn.getAttribute("data-act");
       const orderId = card.getAttribute("data-order-id");
 
-      if (act === "delete_order") {
+      if (act === "kbeauty_delete_order") {
         e.preventDefault();
         if (!confirm("Delete this order?")) return;
 
         UI.setBusy(btn, true);
         try {
-          const res = await C().api({ action: "delete_order", email: user.email, order_id: orderId });
+          const res = await C().api({ action: "kbeauty_delete_order", email: user.email, order_id: orderId });
           if (!res || !res.success) return alert(res?.error || "Delete failed.");
           card.remove();
         } finally {
@@ -714,7 +714,7 @@
         return;
       }
 
-      if (act === "permanent_delete_order") {
+      if (act === "permanent_kbeauty_delete_order") {
         e.preventDefault();
         if (!isAdmin) return;
 
@@ -725,7 +725,7 @@
 
         UI.setBusy(btn, true);
         try {
-          const res = await C().api({ action: "admin_delete_order_permanent", email: user.email, order_id: orderId });
+          const res = await C().api({ action: "admin_kbeauty_delete_order_permanent", email: user.email, order_id: orderId });
           if (!res || !res.success) return alert(res?.error || "Permanent delete failed.");
           card.remove();
         } finally {
@@ -747,7 +747,7 @@
           const items = UI.itemsPayloadFromOrder(ord);
 
           const res = await C().api({
-            action: "update_order",
+            action: "kbeauty_update_order",
             email: user.email,
             order_id: orderId,
             status: nextStatus,
@@ -854,7 +854,7 @@
         UI.setBusy(btn, true);
         try {
           const res = await C().api({
-            action: "update_order",
+            action: "kbeauty_update_order",
             email: user.email,
             order_id: orderId,
             items

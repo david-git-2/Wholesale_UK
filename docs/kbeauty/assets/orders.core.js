@@ -1,7 +1,7 @@
 /* ============================
    docs/assets/orders.core.js  (UPDATED)
    - business logic + payload shaping
-   - optimized for: list_orders without items + get_order_details for items
+   - optimized for: kbeauty_list_orders without items + kbeauty_get_order_details for items
    - supports: per-row item payload
    - NEW: helper for admin permanent delete eligibility (optional convenience)
    ============================ */
@@ -94,7 +94,7 @@
     return orders.filter(o => String(o.status || "").toLowerCase() === f);
   };
 
-  // ✅ Optimized: list_orders response no longer contains items, so don't scan items here.
+  // ✅ Optimized: kbeauty_list_orders response no longer contains items, so don't scan items here.
   OrdersCore.searchOrders = (orders, q) => {
     const query = String(q || "").trim().toLowerCase();
     if (!query) return orders;
@@ -110,7 +110,7 @@
       parts.push(String(o.shipping?.thana || ""));
       parts.push(String(o.shipping?.address || ""));
 
-      // NOTE: do NOT scan o.items because list_orders doesn't include it anymore
+      // NOTE: do NOT scan o.items because kbeauty_list_orders doesn't include it anymore
 
       return parts.join(" ").toLowerCase().includes(query);
     });

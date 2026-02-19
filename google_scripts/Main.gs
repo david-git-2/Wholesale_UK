@@ -8,13 +8,13 @@ function doPost(e) {
 
     if (action === "login") return handleLogin(body);
 
-    if (action === "create_order") return handleCreateOrder(body);
-    if (action === "list_orders") return handleListOrders(body);
-    if (action === "update_order") return handleUpdateOrder(body);
-    if (action === "delete_order") return handleDeleteOrder(body);
+    if (action === "kbeauty_create_order") return handleCreateOrder(body);
+    if (action === "kbeauty_list_orders") return handleListOrders(body);
+    if (action === "kbeauty_update_order") return handleUpdateOrder(body);
+    if (action === "kbeauty_delete_order") return handleDeleteOrder(body);
 
     // optional admin-only hard delete for shipped items
-    if (action === "hard_delete_shipped_items") return handleHardDeleteShippedItems(body);
+    if (action === "kbeauty_hard_delete_shipped_items") return handleHardDeleteShippedItems(body);
 
     return jsonResponse({ success: false, error: "Invalid action" });
   } catch (err) {
