@@ -8,4 +8,4 @@ business_without_images: scrape
 	python python/scraper/export_excel.py
 
 pc:
-	python python/scraper/export_pc.py
+	python python/pc/export_pc_data.py

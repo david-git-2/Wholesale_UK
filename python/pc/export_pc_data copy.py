@@ -4,7 +4,6 @@ import json
 import time
 from collections import defaultdict
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import openpyxl
 
@@ -39,7 +38,9 @@ def safe_filename(s: str) -> str:
 
 
 def prompt_int(label: str, default: int) -> int:
-    """Prompt user for an integer. If empty input, returns default."""
+    """
+    Prompt user for an integer. If empty input, returns default.
+    """
     while True:
         raw = input(f"{label} [{default}]: ").strip()
         if raw == "":
@@ -54,17 +55,7 @@ def prompt_int(label: str, default: int) -> int:
             log("❌ Invalid number. Try again.")
 
 
-def normalize_header(h: str) -> str:
-    # normalize for matching required columns
-    return re.sub(r"[\s\-]+", "_", str(h).strip().lower())
-
-
-def get_oauth_credentials() -> Credentials:
-    """
-    Loads token.json if present, otherwise performs OAuth login.
-    Refreshes expired tokens and saves back to token.json.
-    Returns a valid Credentials object.
-    """
+def get_drive_service_oauth():
     os.makedirs(CREDS_DIR, exist_ok=True)
 
     creds = None
@@ -86,24 +77,15 @@ def get_oauth_credentials() -> Credentials:
             flow = InstalledAppFlow.from_client_secrets_file(OAUTH_CLIENT_JSON, SCOPES)
             creds = flow.run_local_server(port=0)
 
-        with open(TOKEN_JSON, "w", encoding="utf-8") as token:
+        with open(TOKEN_JSON, "w") as token:
             token.write(creds.to_json())
         log(f"✅ Saved token: {TOKEN_JSON}")
 
-    return creds
-
-
-def build_drive_service(creds: Credentials):
-    """Build a Drive API client."""
+    log("✅ Drive API client ready")
     return build("drive", "v3", credentials=creds)
 
 
-def upload_to_drive(service, local_path: str, folder_id: str) -> str:
-    """
-    Uploads a file to Drive into folder_id.
-    IMPORTANT: Does NOT set per-file public permissions.
-    You said your target folder is already public, so we skip permissions for speed.
-    """
+def upload_to_drive(service, local_path: str, folder_id: str, make_public: bool = True) -> str:
     filename = os.path.basename(local_path)
     metadata = {"name": filename}
     if folder_id:
@@ -113,21 +95,33 @@ def upload_to_drive(service, local_path: str, folder_id: str) -> str:
     created = service.files().create(body=metadata, media_body=media, fields="id").execute()
     file_id = created["id"]
 
-    # Direct link works well for <img src=""> if the file is accessible via folder sharing.
-    direct_link = f"https://drive.google.com/uc?id={file_id}"
-    return direct_link
+    direct_link = f"https://drive.google.com/uc?id={file_id}"     # best for <img src="">
+    view_link = f"https://drive.google.com/file/d/{file_id}/view" # fallback opens in browser
+
+    if not make_public:
+        return view_link
+
+    for attempt in range(1, 4):
+        try:
+            service.permissions().create(
+                fileId=file_id,
+                body={"type": "anyone", "role": "reader"},
+            ).execute()
+            return direct_link
+        except HttpError as e:
+            log(f"⚠️  Public permission failed ({attempt}/3) for {filename}: {e}")
+            time.sleep(1.5 * attempt)
+        except Exception as e:
+            log(f"⚠️  Public permission failed ({attempt}/3) for {filename}: {e}")
+            time.sleep(1.5 * attempt)
+
+    log(f"⚠️  Could not make public after retries: {filename}. Using view link.")
+    return view_link
 
 
-def format_duration(seconds: float) -> str:
-    seconds = max(0, int(seconds))
-    h = seconds // 3600
-    m = (seconds % 3600) // 60
-    s = seconds % 60
-    if h > 0:
-        return f"{h}h {m}m {s}s"
-    if m > 0:
-        return f"{m}m {s}s"
-    return f"{s}s"
+def normalize_header(h: str) -> str:
+    # normalize for matching required columns
+    return re.sub(r"[\s\-]+", "_", str(h).strip().lower())
 
 
 def main():
@@ -138,16 +132,13 @@ def main():
     OUT_JSON_PATH = DEFAULT_OUT_JSON
     OUT_IMAGES_DIR = DEFAULT_OUT_IMAGES
 
-    # Your Drive folder is already public (Anyone with link).
-    DRIVE_FOLDER_ID = "1Sji8cv1FZRCz3oxnBW0HQS2Wqe33vAPZ"
+    DRIVE_FOLDER_ID = "1ADhsOk31vbtvv-o1alaLPLR0Vvjg0GrL"  # optional ("" to upload in My Drive root)
 
     DEFAULT_HEADER_ROW = 4
     DEFAULT_IMAGE_COLUMN_INDEX = 14  # 1-based column index (14 = N)
 
     SHEET_NAME = None
-
-    # Parallel upload settings
-    MAX_WORKERS = 6  # try 5-10; too high may hit rate limits
+    MAKE_PUBLIC = True
     # ----------------
 
     log(
@@ -160,18 +151,14 @@ def main():
         "    - case_size\n"
         "    - name\n"
         "    - price\n"
-        "    - image   (images are embedded in the sheet; you will enter the image column index)\n"
+        "    - image   (images are embedded in the sheet; column index is prompted below)\n"
         "  Optional columns:\n"
         "    - country_of_origin\n"
         "    - brand\n"
         "\n"
-        "⚡ Speed mode enabled:\n"
-        "  - Your Drive folder is already public → we will NOT set per-file permissions.\n"
-        f"  - Parallel uploads enabled (workers={MAX_WORKERS}).\n"
-        "\n"
         "👉 You will be asked for:\n"
         "  - Header row number (where the column names are)\n"
-        "  - Image column index (1=A, 2=B, ...)\n"
+        "  - Image column index (1=A, 2=B, ... 14=N)\n"
     )
 
     HEADER_ROW = prompt_int("Enter header row number", DEFAULT_HEADER_ROW)
@@ -206,13 +193,14 @@ def main():
     header_to_col = {}
     for idx, h in enumerate(headers, start=1):
         nh = normalize_header(h)
+        # keep first occurrence if duplicates
         header_to_col.setdefault(nh, idx)
 
     # Required/optional columns
     required = ["barcode", "case_size", "name", "price"]
     optional = ["country_of_origin", "brand"]
-
     missing_required = [c for c in required if c not in header_to_col]
+
     if missing_required:
         raise RuntimeError(
             "❌ Missing required column(s) in header row "
@@ -268,6 +256,7 @@ def main():
         if ext == "jpeg":
             ext = "jpg"
 
+        # use barcode value for filename
         barcode_header_name = headers[barcode_col - 1]
         barcode_val = products_by_row[row].get(barcode_header_name, "")
         barcode_str = safe_filename(barcode_val if barcode_val is not None else f"row_{row}")
@@ -296,59 +285,28 @@ def main():
 
     log(f"✅ Local images saved: {len(local_path_by_row)}\n")
 
-    # OAuth once (IMPORTANT): do NOT do OAuth inside threads.
-    log("☁️ Preparing Google Drive credentials...")
-    base_creds = get_oauth_credentials()
-    log("✅ Credentials ready")
-
-    # Helper: create independent creds per worker to avoid shared-state issues
-    base_creds_info = json.loads(base_creds.to_json())
-
-    def upload_one(row: int, path: str):
-        # Fresh creds object per thread (avoid races on refresh state)
-        creds = Credentials.from_authorized_user_info(base_creds_info, SCOPES)
-        service = build_drive_service(creds)
-        url = upload_to_drive(service, path, DRIVE_FOLDER_ID)
-        return row, url
-
-    # Parallel upload
-    items = list(local_path_by_row.items())
-    total = len(items)
+    # Upload to Drive
+    log("☁️ Connecting to Google Drive...")
+    service = get_drive_service_oauth()
     drive_url_by_row = {}
 
-    log(f"⬆️ Uploading {total} image(s) to Drive (parallel workers={MAX_WORKERS})...")
+    log(f"⬆️ Uploading {len(local_path_by_row)} image(s) to Drive (MAKE_PUBLIC={MAKE_PUBLIC})...")
     up_start = time.perf_counter()
+    for i, (row, path) in enumerate(local_path_by_row.items(), start=1):
+        try:
+            url = upload_to_drive(service, path, DRIVE_FOLDER_ID, make_public=MAKE_PUBLIC)
+            drive_url_by_row[row] = url
+        except Exception as e:
+            log(f"❌ Upload failed for row={row}, file={os.path.basename(path)}: {e}")
+            drive_url_by_row[row] = None
 
-    # Progress stats
-    done = 0
-    failed = 0
+        if i % 10 == 0 or i == len(local_path_by_row):
+            elapsed = time.perf_counter() - up_start
+            rate = (i / elapsed) if elapsed > 0 else 0
+            log(f"   ...uploaded {i}/{len(local_path_by_row)}  (avg {rate:.2f} files/sec)")
 
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
-        futures = [ex.submit(upload_one, row, path) for row, path in items]
-
-        for fut in as_completed(futures):
-            try:
-                row, url = fut.result()
-                drive_url_by_row[row] = url
-            except Exception as e:
-                failed += 1
-                log(f"❌ Upload failed: {e}")
-            finally:
-                done += 1
-
-                # progress print every 25 or at end
-                if done % 25 == 0 or done == total:
-                    elapsed = time.perf_counter() - up_start
-                    rate = (done / elapsed) if elapsed > 0 else 0.0
-                    remaining = total - done
-                    eta = (remaining / rate) if rate > 0 else 0
-                    log(
-                        f"   ...uploaded {done}/{total} "
-                        f"(fail={failed}) | avg {rate:.2f} files/sec | ETA {format_duration(eta)}"
-                    )
-
-    uploaded_count = len(drive_url_by_row)
-    log(f"✅ Upload step done. URLs created: {uploaded_count} (failed={failed})\n")
+    uploaded_count = sum(1 for v in drive_url_by_row.values() if v)
+    log(f"✅ Upload step done. URLs created: {uploaded_count}\n")
 
     # Build JSON (field names come from Excel header row)
     log("🧾 Building JSON payload...")
@@ -366,13 +324,11 @@ def main():
             "count": len(products),
             "imagesExtracted": len(local_path_by_row),
             "imagesUploaded": uploaded_count,
+            "makePublic": MAKE_PUBLIC,
             "headerRow": HEADER_ROW,
             "imageColumnIndex": IMAGE_COLUMN_INDEX,
-            "parallelWorkers": MAX_WORKERS,
-            "driveFolderId": DRIVE_FOLDER_ID,
-            "note": "Per-file permissions not set (folder is already public).",
         },
-        "products": products,
+        "products": products
     }
 
     with open(OUT_JSON_PATH, "w", encoding="utf-8") as f:
@@ -384,10 +340,9 @@ def main():
     log(f"- Products: {len(products)}")
     log(f"- Images extracted: {len(local_path_by_row)} -> {OUT_IMAGES_DIR}")
     log(f"- Images uploaded (with URL): {uploaded_count}")
-    log(f"- Upload failures: {failed}")
     log(f"- JSON written: {OUT_JSON_PATH}")
     log(f"- Token saved: {TOKEN_JSON}")
-    log(f"⏱️ Total time: {format_duration(t_total)}\n")
+    log(f"⏱️ Total time: {t_total:.2f} seconds\n")
 
 
 if __name__ == "__main__":
