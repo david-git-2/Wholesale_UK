@@ -1,6 +1,7 @@
 // assets/orders.app.js
 (function () {
   const API = window.BW_UK_ORDERS_API;
+  const MODAL = window.BW_UK_ORDERS_MODAL;
 
   const elMeta = document.getElementById("meta");
   const elTbl = document.getElementById("ordersTbl");
@@ -8,77 +9,147 @@
   const elRefresh = document.getElementById("refreshBtn");
   const elWho = document.getElementById("who");
 
+  // Stock aggregation (admin only)
   const elStockListId = document.getElementById("stockListId");
   const elAggBtn = document.getElementById("aggBtn");
 
-  const modal = document.getElementById("modal");
-  const mClose = document.getElementById("mClose");
-  const mTitle = document.getElementById("mTitle");
-  const mSub = document.getElementById("mSub");
+  // Optional: a link button to open aggregate page (recommended)
+  const elAggPageBtn = document.getElementById("aggPageBtn"); // create this button in HTML if you want
+  
 
-  const mOrderName = document.getElementById("mOrderName");
-  const mStatus = document.getElementById("mStatus");
-  const mSaveOrder = document.getElementById("mSaveOrder");
-  const mDeleteOrder = document.getElementById("mDeleteOrder");
+  const elAggWrap =
+    document.getElementById("aggWrap") ||
+    (elAggBtn ? elAggBtn.closest(".row") : null) ||
+    null;
 
-  const mConversionRate = document.getElementById("mConversionRate");
-  const mCuriaCost = document.getElementById("mCuriaCost");
-  const mStockListId = document.getElementById("mStockListId");
+  // ----------------- HARD GUARDS -----------------
+  if (!API) {
+    console.error("BW_UK_ORDERS_API missing. Check that ./docs/assets/uk.orders.api.js is loaded.");
+    if (elMeta) elMeta.textContent = "API missing: uk.orders.api.js not loaded.";
+    return;
+  }
+  if (!MODAL) {
+    console.error("BW_UK_ORDERS_MODAL missing. Check that ./assets/orders.modal.js is loaded BEFORE orders.app.js.");
+    if (elMeta) elMeta.textContent = "Modal missing: orders.modal.js not loaded.";
+    return;
+  }
 
-  const tCostG = document.getElementById("tCostG");
-  const tCostB = document.getElementById("tCostB");
-  const tOff = document.getElementById("tOff");
-  const tCus = document.getElementById("tCus");
-  const tFin = document.getElementById("tFin");
-
-  const mSubmit = document.getElementById("mSubmit");
-  const mAcceptOffer = document.getElementById("mAcceptOffer");
-
-  const itemsTbl = document.getElementById("itemsTbl");
-  const mSaveItems = document.getElementById("mSaveItems");
-  const mDeleteItems = document.getElementById("mDeleteItems");
-
-  const STATUS = [
-    "draft","submitted","priced","under_review","finalized",
-    "processing","partially_delivered","delivered","cancelled"
-  ];
-
-  let CURRENT_ORDER = null;
-  let CURRENT_ITEMS = [];
-
+  // ----------------- UI helpers -----------------
   function money(n) {
     const x = Number(n || 0);
     return x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  function openModal() { modal.style.display = "flex"; }
-  function closeModal() { modal.style.display = "none"; }
+  function setBusy(isBusy, msg = "Loading…") {
+    if (elMeta) elMeta.textContent = isBusy ? msg : (elMeta.dataset.readyText || "");
+    if (elRefresh) elRefresh.disabled = !!isBusy;
+    if (elStatusFilter) elStatusFilter.disabled = !!isBusy;
+  }
+
+  function renderSkeletonTable(rows = 8) {
+    const shimmer = `
+      <style>
+        .sk { position:relative; overflow:hidden; background:#eee; border-radius:10px; }
+        .sk::after{
+          content:""; position:absolute; top:0; left:-40%;
+          width:40%; height:100%;
+          background:linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent);
+          animation: sk 1.1s infinite;
+        }
+        @keyframes sk { 0%{ left:-40%; } 100%{ left:120%; } }
+        .sk-line { height:12px; margin:6px 0; }
+        .sk-pill { height:22px; width:86px; border-radius:999px; }
+      </style>
+    `;
+
+    elTbl.innerHTML = `
+      ${shimmer}
+      <thead>
+        <tr>
+          <th>Order</th><th>Status</th><th>Creator</th><th>StockList</th><th>Totals (BDT)</th><th>Updated</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${Array.from({ length: rows }).map(() => `
+          <tr>
+            <td>
+              <div class="sk sk-line" style="width:180px;"></div>
+              <div class="sk sk-line" style="width:120px;"></div>
+            </td>
+            <td><div class="sk sk-pill"></div></td>
+            <td><div class="sk sk-line" style="width:140px;"></div></td>
+            <td><div class="sk sk-line" style="width:90px;"></div></td>
+            <td><div class="sk sk-line" style="width:240px;"></div></td>
+            <td><div class="sk sk-line" style="width:120px;"></div></td>
+            <td><div class="sk sk-line" style="width:70px;height:28px;"></div></td>
+          </tr>
+        `).join("")}
+      </tbody>
+    `;
+  }
+
+  // ----------------- Auth helpers -----------------
+  function getUser() {
+    return (typeof API.getUser === "function") ? API.getUser() : null;
+  }
+
+  function mustBeLoggedIn() {
+    const user = getUser();
+    if (!user?.email) {
+      alert("Please login first.");
+      location.href = "./index.html";
+      return null;
+    }
+    return user;
+  }
+
+  function isAdminUser(user) {
+    return user?.role === "admin" || user?.is_admin === true;
+  }
 
   function setWho() {
-    const email = API.getEmail();
-    const role = API.getRole();
-    elWho.textContent = `${email || "Not logged in"} • role: ${role || "customer"}`;
+    const user = getUser();
+    const email = user?.email || "Not logged in";
+    const role = isAdminUser(user) ? "admin" : "customer";
+    if (elWho) elWho.textContent = `${email} • role: ${role}`;
   }
 
-  function renderStatusOptions() {
-    mStatus.innerHTML = STATUS.map(s => `<option value="${s}">${s}</option>`).join("");
-  }
-
+  // ----------------- Data load -----------------
   async function loadOrders() {
+    const user = mustBeLoggedIn();
+    if (!user) return;
+
     setWho();
-    elMeta.textContent = "Loading…";
+    setBusy(true, "Loading orders…");
+    renderSkeletonTable(8);
+
     const status = elStatusFilter.value || "";
     try {
       const res = await API.fetchOrders({ status, limit: 400 });
       const orders = res.orders || [];
-      elMeta.textContent = `${orders.length} order(s)`;
+      elMeta.dataset.readyText = `${orders.length} order(s)`;
+      setBusy(false);
+      if (elMeta) elMeta.textContent = elMeta.dataset.readyText;
 
       renderOrdersTable(orders);
+      applyAggUi();
     } catch (e) {
       console.error(e);
-      elMeta.textContent = `Error: ${e.message || e}`;
+      setBusy(false);
+      if (elMeta) elMeta.textContent = `Error: ${e.message || e}`;
       elTbl.innerHTML = "";
     }
+  }
+
+  function applyAggUi() {
+    const user = getUser();
+    const admin = isAdminUser(user);
+
+    const show = admin ? "" : "none";
+    if (elAggWrap) elAggWrap.style.display = show;
+    if (elAggBtn) elAggBtn.style.display = show;
+    if (elStockListId) elStockListId.style.display = show;
+    if (elAggPageBtn) elAggPageBtn.style.display = show;
   }
 
   function renderOrdersTable(orders) {
@@ -124,234 +195,214 @@
   }
 
   async function openOrder(orderId) {
-    const res = await API.getOrder(orderId);
-    CURRENT_ORDER = res.order;
-    CURRENT_ITEMS = res.items || [];
+    const user = mustBeLoggedIn();
+    if (!user) return;
 
-    mTitle.textContent = CURRENT_ORDER.OrderName || "Order";
-    mSub.textContent = `${CURRENT_ORDER.OrderId} • ${CURRENT_ORDER.Status} • ${CURRENT_ORDER.CreatorEmail}`;
+    // lightweight loader feedback
+    const prev = elMeta.textContent;
+    setBusy(true, "Opening order…");
 
-    mOrderName.value = CURRENT_ORDER.OrderName || "";
-    mStatus.value = CURRENT_ORDER.Status || "draft";
-    mConversionRate.value = (CURRENT_ORDER.ConversionRate ?? "");
-    mCuriaCost.value = (CURRENT_ORDER.CuriaCost ?? "");
-    mStockListId.value = (CURRENT_ORDER.StockListId ?? "");
-
-    tCostG.textContent = money(CURRENT_ORDER.TotalCostGBP);
-    tCostB.textContent = money(CURRENT_ORDER.TotalCostBDT);
-    tOff.textContent = money(CURRENT_ORDER.TotalOfferedBDT);
-    tCus.textContent = money(CURRENT_ORDER.TotalCustomerBDT);
-    tFin.textContent = money(CURRENT_ORDER.TotalFinalBDT);
-
-    renderItemsTable(CURRENT_ITEMS);
-
-    openModal();
+    try {
+      const res = await API.getOrder(orderId);
+      MODAL.show({ user, order: res.order, items: res.items || [] });
+    } finally {
+      setBusy(false);
+      if (elMeta) elMeta.textContent = prev || elMeta.dataset.readyText || "";
+    }
   }
 
-  function renderItemsTable(items) {
-    itemsTbl.innerHTML = `
-      <thead>
-        <tr>
-          <th></th>
-          <th>Barcode</th>
-          <th>Description</th>
-          <th>Qty</th>
-          <th>Weights (g)</th>
-          <th>Offer (BDT)</th>
-          <th>Customer</th>
-          <th>Final</th>
-          <th>Shipped</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${items.map(it => `
-          <tr data-row="${it.Barcode}">
-            <td><input type="checkbox" data-del="${it.Barcode}" /></td>
-            <td class="muted">${it.Barcode}</td>
-            <td>
-              <div style="font-weight:900;font-size:13px;">${it.Description || ""}</div>
-              <div class="muted">${it.Brand || ""}</div>
-            </td>
-
-            <td>
-              <input data-k="orderedQuantity" style="width:90px"
-                value="${it.OrderedQuantity ?? ""}" />
-            </td>
-
-            <td>
-              <div class="row" style="gap:6px;">
-                <input data-k="productWeight" style="width:90px" value="${it.ProductWeight ?? ""}" />
-                <input data-k="packageWeight" style="width:90px" value="${it.PackageWeight ?? ""}" />
-              </div>
-            </td>
-
-            <td class="muted">${money(it.OfferedPriceBDT)}</td>
-
-            <td>
-              <input data-k="customerPriceBDT" style="width:110px"
-                value="${it.CustomerPriceBDT ?? ""}" />
-            </td>
-
-            <td>
-              <input data-k="finalPriceBDT" style="width:110px"
-                value="${it.FinalPriceBDT ?? ""}" />
-            </td>
-
-            <td>
-              <input data-k="shippedQuantity" style="width:90px"
-                value="${it.ShippedQuantity ?? ""}" />
-            </td>
-          </tr>
-        `).join("")}
-      </tbody>
-    `;
+  // ----------------- Modal action handlers (unchanged) -----------------
+  function isOwnerCustomer(user, order) {
+    if (!user?.email || !order?.CreatorEmail) return false;
+    return String(user.email).toLowerCase() === String(order.CreatorEmail).toLowerCase();
   }
 
-  function readItemsEdits() {
-    const out = [];
-    itemsTbl.querySelectorAll("tbody tr[data-row]").forEach(tr => {
-      const barcode = tr.getAttribute("data-row");
-      const patch = { barcode };
+  function uiGuardOrThrow(label) {
+    const st = MODAL.getState();
+    const user = st.user;
+    const order = st.order;
 
-      tr.querySelectorAll("input[data-k]").forEach(inp => {
-        const k = inp.getAttribute("data-k");
-        const v = inp.value;
+    if (!user?.email) throw new Error("Not logged in");
+    if (!order) throw new Error("No order loaded");
 
-        // send only if changed-ish
-        if (k === "orderedQuantity") patch.orderedQuantity = v === "" ? null : Number(v);
-        if (k === "productWeight") patch.productWeight = v === "" ? null : Number(v);
-        if (k === "packageWeight") patch.packageWeight = v === "" ? null : Number(v);
-        if (k === "customerPriceBDT") patch.customerPriceBDT = v === "" ? null : Number(v);
-        if (k === "finalPriceBDT") patch.finalPriceBDT = v === "" ? null : Number(v);
-        if (k === "shippedQuantity") patch.shippedQuantity = v === "" ? null : Number(v);
-      });
+    const admin = isAdminUser(user);
+    const owner = isOwnerCustomer(user, order);
+    const status = order.Status || "draft";
 
-      out.push(patch);
-    });
-    return out;
+    if (!admin && !owner) throw new Error("Not allowed");
+    if (status === "delivered") throw new Error(`Order is delivered (read-only). Cannot ${label}.`);
+
+    return { user, order, admin, owner, status };
   }
 
-  function selectedBarcodes() {
-    const out = [];
-    itemsTbl.querySelectorAll("input[data-del]:checked").forEach(cb => {
-      out.push(cb.getAttribute("data-del"));
-    });
-    return out;
-  }
+  MODAL.bind({
+    onSaveOrder: async (patch) => {
+      try {
+        const { admin, owner, status, order } = uiGuardOrThrow("save order");
 
-  // ----- Actions -----
+        if (!admin) {
+          if (!owner) throw new Error("Not allowed");
+          if (status !== "draft") throw new Error("Customers can edit OrderName only in draft.");
+          if (!patch.orderName) throw new Error("OrderName is required.");
 
-  mClose.addEventListener("click", closeModal);
-  modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+          await API.updateOrder(order.OrderId, { orderName: patch.orderName });
+        } else {
+          if (!patch.orderName) throw new Error("OrderName is required.");
+          await API.updateOrder(order.OrderId, patch);
+        }
 
-  mSaveOrder.addEventListener("click", async () => {
-    if (!CURRENT_ORDER) return;
+        await openOrder(order.OrderId);
+        await loadOrders();
+        alert("Order saved.");
+      } catch (e) {
+        alert(e.message || String(e));
+      }
+    },
 
-    const patch = {
-      orderName: mOrderName.value.trim(),
-      status: mStatus.value,
-      conversionRate: mConversionRate.value === "" ? null : Number(mConversionRate.value),
-      curiaCost: mCuriaCost.value === "" ? null : Number(mCuriaCost.value),
-      stockListId: mStockListId.value.trim(),
-    };
+    onDeleteOrder: async () => {
+      try {
+        const { admin, order } = uiGuardOrThrow("delete order");
+        if (!admin) throw new Error("Only admin can delete orders.");
+        if (!confirm("Delete this order? This removes all items too.")) return;
 
-    try {
-      await API.updateOrder(CURRENT_ORDER.OrderId, patch);
-      await openOrder(CURRENT_ORDER.OrderId);
-      await loadOrders();
-      alert("Order saved.");
-    } catch (e) {
-      alert(e.message || String(e));
+        await API.deleteOrder(order.OrderId);
+        MODAL.close();
+        await loadOrders();
+      } catch (e) {
+        alert(e.message || String(e));
+      }
+    },
+
+    onSaveItems: async (itemsPatch) => {
+      try {
+        const { admin, owner, status, order } = uiGuardOrThrow("save items");
+
+        if (!admin) {
+          if (!owner) throw new Error("Not allowed");
+          if (!(status === "draft" || status === "priced" || status === "under_review")) {
+            throw new Error("Items are read-only in this status.");
+          }
+
+          const safe = itemsPatch.map(p => ({
+            barcode: p.barcode,
+            orderedQuantity: status === "draft" ? p.orderedQuantity : null,
+            customerPriceBDT: (status === "priced" || status === "under_review") ? p.customerPriceBDT : null,
+            productWeight: null,
+            packageWeight: null,
+            finalPriceBDT: null,
+            shippedQuantity: null,
+          }));
+
+          await API.updateItems(order.OrderId, safe);
+
+          if (status === "priced") {
+            await API.updateOrder(order.OrderId, { status: "under_review" });
+          }
+        } else {
+          await API.updateItems(order.OrderId, itemsPatch);
+        }
+
+        await openOrder(order.OrderId);
+        await loadOrders();
+        alert("Items saved.");
+      } catch (e) {
+        alert(e.message || String(e));
+      }
+    },
+
+    onDeleteItems: async (barcodes) => {
+      try {
+        const { admin, owner, status, order } = uiGuardOrThrow("delete items");
+        if (!barcodes?.length) return alert("Select items first.");
+
+        if (!admin) {
+          if (!owner) throw new Error("Not allowed");
+          if (status !== "draft") throw new Error("Customers can delete items only in draft.");
+        }
+
+        if (!confirm(`Delete ${barcodes.length} item(s)?`)) return;
+
+        await API.deleteItems(order.OrderId, barcodes);
+        await openOrder(order.OrderId);
+        await loadOrders();
+      } catch (e) {
+        alert(e.message || String(e));
+      }
+    },
+
+    onSubmit: async () => {
+      try {
+        const { admin, owner, status, order } = uiGuardOrThrow("submit");
+        if (admin) throw new Error("Admins do not submit orders.");
+        if (!owner) throw new Error("Not allowed");
+        if (status !== "draft") throw new Error("Only draft orders can be submitted.");
+
+        await API.updateOrder(order.OrderId, { status: "submitted" });
+        await openOrder(order.OrderId);
+        await loadOrders();
+        alert("Submitted.");
+      } catch (e) {
+        alert(e.message || String(e));
+      }
+    },
+
+    onAcceptOffer: async () => {
+      try {
+        const { admin, owner, status, order } = uiGuardOrThrow("accept offer");
+        if (admin) throw new Error("Admins do not accept offers.");
+        if (!owner) throw new Error("Not allowed");
+        if (status !== "priced") throw new Error("Only priced orders can be accepted.");
+
+        await API.updateOrder(order.OrderId, { status: "finalized" });
+        await openOrder(order.OrderId);
+        await loadOrders();
+        alert("Offer accepted.");
+      } catch (e) {
+        alert(e.message || String(e));
+      }
     }
   });
 
-  mDeleteOrder.addEventListener("click", async () => {
-    if (!CURRENT_ORDER) return;
-    if (!confirm("Delete this order? This removes all items too.")) return;
-
+  // ----------------- Aggregation (admin only) -----------------
+  // Keep your old alert aggregation button
+  elAggBtn?.addEventListener("click", async () => {
     try {
-      await API.deleteOrder(CURRENT_ORDER.OrderId);
-      closeModal();
-      await loadOrders();
-    } catch (e) {
-      alert(e.message || String(e));
-    }
-  });
+      const user = mustBeLoggedIn();
+      if (!user) return;
+      if (!isAdminUser(user)) throw new Error("Admin only.");
 
-  mSaveItems.addEventListener("click", async () => {
-    if (!CURRENT_ORDER) return;
-    const items = readItemsEdits();
-    try {
-      await API.updateItems(CURRENT_ORDER.OrderId, items);
-      await openOrder(CURRENT_ORDER.OrderId);
-      await loadOrders();
-      alert("Items saved.");
-    } catch (e) {
-      alert(e.message || String(e));
-    }
-  });
+      const stockListId = elStockListId.value.trim();
+      if (!stockListId) return alert("Enter StockListId");
 
-  mDeleteItems.addEventListener("click", async () => {
-    if (!CURRENT_ORDER) return;
-    const barcodes = selectedBarcodes();
-    if (!barcodes.length) return alert("Select items first.");
-    if (!confirm(`Delete ${barcodes.length} item(s)?`)) return;
-
-    try {
-      await API.deleteItems(CURRENT_ORDER.OrderId, barcodes);
-      await openOrder(CURRENT_ORDER.OrderId);
-      await loadOrders();
-    } catch (e) {
-      alert(e.message || String(e));
-    }
-  });
-
-  // Customer submit: draft -> submitted
-  mSubmit.addEventListener("click", async () => {
-    if (!CURRENT_ORDER) return;
-    try {
-      await API.updateOrder(CURRENT_ORDER.OrderId, { status: "submitted" });
-      await openOrder(CURRENT_ORDER.OrderId);
-      await loadOrders();
-      alert("Submitted.");
-    } catch (e) {
-      alert(e.message || String(e));
-    }
-  });
-
-  // Customer accept offer: priced -> finalized (server allows priced->finalized)
-  mAcceptOffer.addEventListener("click", async () => {
-    if (!CURRENT_ORDER) return;
-    try {
-      await API.updateOrder(CURRENT_ORDER.OrderId, { status: "finalized" });
-      await openOrder(CURRENT_ORDER.OrderId);
-      await loadOrders();
-      alert("Offer accepted.");
-    } catch (e) {
-      alert(e.message || String(e));
-    }
-  });
-
-  // Aggregate stock list (admin)
-  elAggBtn.addEventListener("click", async () => {
-    const stockListId = elStockListId.value.trim();
-    if (!stockListId) return alert("Enter StockListId");
-    try {
       const res = await API.aggregateStockList(stockListId, true);
       const lines = (res.items || []).map(it =>
         `${it.barcode} • qty=${it.totalOrderedQuantity} • shipped=${it.totalShippedQuantity}`
       ).join("\n");
+
       alert(`StockList: ${stockListId}\nOrders: ${res.orderCount}\n\n${lines || "No items"}`);
     } catch (e) {
       alert(e.message || String(e));
     }
   });
 
-  // Filters
+  // New: open aggregate page (no dialog)
+  elAggPageBtn?.addEventListener("click", () => {
+    const user = mustBeLoggedIn();
+    if (!user) return;
+    if (!isAdminUser(user)) return alert("Admin only.");
+
+    const stockListId = elStockListId.value.trim();
+    if (!stockListId) return alert("Enter StockListId");
+    location.href = `./aggregate.html?stockListId=${encodeURIComponent(stockListId)}`;
+  });
+
+  // ----------------- init -----------------
+  MODAL.init();
+  setWho();
+  applyAggUi();
+
   elStatusFilter.addEventListener("change", loadOrders);
   elRefresh.addEventListener("click", loadOrders);
 
-  // init
-  renderStatusOptions();
-  loadOrders();
+  if (mustBeLoggedIn()) loadOrders();
 })();

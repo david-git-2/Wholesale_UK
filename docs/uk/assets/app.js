@@ -150,32 +150,59 @@
       if (!elBody || !elTotal) return;
 
       elBody.innerHTML = items.length
-        ? items.map(it => `
-          <div style="border:1px solid #e2e8f0; border-radius:14px; padding:10px; margin-bottom:10px;">
-            <div style="font-weight:900; font-size:13px;">${safeText(it.name)}</div>
-            <div style="color:#64748b; font-size:12px;">
-              ${safeText(it.code)} • Barcode: ${safeText(it.barcode || "—")} • Step: ${Number(it.step || 1)}
-            </div>
+  ? items.map(it => `
+    <div class="cartItem">
+      <div class="cartItemImg">
+        ${
+          it.imageUrl
+            ? `<img
+                src="${it.imageUrl}"
+                alt="${safeText(it.name)}"
+                loading="lazy"
+                referrerpolicy="no-referrer"
+                onerror="this.onerror=null; this.src='https://via.placeholder.com/160?text=No+Image';"
+              />`
+            : `<div class="cartItemImgFallback">
+                <i data-lucide="image-off" class="i"></i>
+              </div>`
+        }
+      </div>
 
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:10px;">
-              <span style="color:#64748b; font-size:12px;">${moneyGBP(it.priceEach)}</span>
+      <div class="cartItemMain">
+        <div class="cartItemTitle">${safeText(it.name)}</div>
 
-              <div style="display:flex; gap:8px; align-items:center;">
-                <button class="btn" type="button" data-dec="${it.id}">
-                  <i data-lucide="minus" class="i"></i>
-                </button>
-                <div style="min-width:40px; text-align:center; font-weight:900;">${it.qty}</div>
-                <button class="btn" type="button" data-inc="${it.id}">
-                  <i data-lucide="plus" class="i"></i>
-                </button>
-                <button class="btn" type="button" data-remove="${it.id}">
-                  <i data-lucide="trash-2" class="i"></i>
-                </button>
-              </div>
-            </div>
+        <div class="cartItemMeta">
+          <span class="mono">${safeText(it.code)}</span>
+          <span>•</span>
+          <span>Barcode: <span class="mono">${safeText(it.barcode || "—")}</span></span>
+          <span>•</span>
+          <span>Step: <b>${Number(it.step || 1)}</b></span>
+        </div>
+
+        <div class="cartItemBottom">
+          <span class="cartItemPrice">${moneyGBP(it.priceEach)}</span>
+
+          <div class="cartItemBtns">
+            <button class="btn" type="button" data-dec="${it.id}" aria-label="Decrease">
+              <i data-lucide="minus" class="i"></i>
+            </button>
+
+            <div class="cartQty">${it.qty}</div>
+
+            <button class="btn" type="button" data-inc="${it.id}" aria-label="Increase">
+              <i data-lucide="plus" class="i"></i>
+            </button>
+
+            <button class="btn" type="button" data-remove="${it.id}" aria-label="Remove">
+              <i data-lucide="trash-2" class="i"></i>
+            </button>
           </div>
-        `).join("")
-        : `<div style="color:#64748b;">Cart is empty.</div>`;
+        </div>
+      </div>
+    </div>
+  `).join("")
+  : `<div style="color:#64748b;">Cart is empty.</div>`;
+
 
       const total = items.reduce((s, it) => s + (Number(it.qty || 0) * Number(it.priceEach || 0)), 0);
       elTotal.textContent = moneyGBP(total);
@@ -264,86 +291,97 @@
     syncUI();
   }
 
-  function cardHTML(p) {
-    const pr = computePricingGBP(p);
-    const step = innerStep(p);
+ function cardHTML(p) {
+  const pr = computePricingGBP(p);
+  const step = innerStep(p);
 
-    const img = p.imageUrl
-      ? `<img
-          src="${p.imageUrl}"
-          alt="${safeText(p.name)}"
-          loading="lazy"
-          referrerpolicy="no-referrer"
-          onerror="this.onerror=null; this.src='https://via.placeholder.com/600x600?text=No+Image';"
-        />`
-      : `<div style="color:#64748b; font-size:12px;">No image</div>`;
+  const img = p.imageUrl
+    ? `<img
+        src="${p.imageUrl}"
+        alt="${safeText(p.name)}"
+        loading="lazy"
+        referrerpolicy="no-referrer"
+        onerror="this.onerror=null; this.src='https://via.placeholder.com/600x600?text=No+Image';"
+      />`
+    : `<div class="thumbFallback">
+        <i data-lucide="image-off" class="i"></i>
+        <div>No image</div>
+      </div>`;
 
-    return `
-      <div class="card" data-card="${p.id}">
-        <div class="thumb">${img}</div>
+  return `
+    <article class="card" data-card="${p.id}">
+      <div class="thumb">
+        ${img}
 
-        <div class="cardBody">
-          <!-- ✅ Description -->
-          <div class="name">
-            <i data-lucide="tag" class="i"></i>
-            ${safeText(p.name)}
-          </div>
-
-          <div class="sub">
-            <!-- ✅ Brand -->
-            <span class="pill">
-              <i data-lucide="badge-check" class="i"></i>
-              ${safeText(p.brand || "—")}
-            </span>
-
-            <!-- ✅ Barcode -->
-            <span class="pill" title="Barcode">
-              <i data-lucide="barcode" class="i"></i>
-              ${safeText(p.barcode || "—")}
-            </span>
-
-            <!-- ✅ Origin -->
-            <span class="pill" title="Country of origin">
-              <i data-lucide="globe" class="i"></i>
-              ${safeText(p.origin || "—")}
-            </span>
-          </div>
-
-          <!-- ✅ Price in GBP (no conversion) -->
-          <div class="priceRow">
-            <div>
-              <div class="price">
-                <i data-lucide="pound-sterling" class="i"></i>
-                ${moneyGBP(pr.piece)}
-              </div>
-              <div class="small">
-                <i data-lucide="package" class="i"></i>
-                Inner case step: <b>${step}</b> 
-              </div>
-            </div>
-          </div>
-
-          <!-- ✅ Cart controls: increment/decrement by inner case -->
-          <div class="actions" style="align-items:center;">
-            <button class="btn" type="button" data-dec-card="${p.id}" title="Decrease by inner case">
-              <i data-lucide="minus" class="i"></i>
-              -${step}
-            </button>
-
-            <div class="pill" style="background:#fff;">
-              <i data-lucide="shopping-cart" class="i"></i>
-              In cart: <span data-incart="${p.id}">0</span>
-            </div>
-
-            <button class="btn primary" type="button" data-inc-card="${p.id}" title="Increase by inner case">
-              <i data-lucide="plus" class="i"></i>
-              +${step}
-            </button>
-          </div>
+        <div class="cornerBadges">
+          <span class="chip chipSolid" title="Inner case step">
+            <i data-lucide="package" class="i"></i>
+            Step <b>${step}</b>
+          </span>
         </div>
       </div>
-    `;
-  }
+
+      <div class="cardBody">
+        <div class="titleRow">
+          <div class="name" title="${safeText(p.name)}">${safeText(p.name)}</div>
+        </div>
+
+        <div class="sub">
+          <span class="pill">
+            <i data-lucide="badge-check" class="i"></i>
+            ${safeText(p.brand || "—")}
+          </span>
+
+          <span class="pill" title="Barcode">
+            <i data-lucide="barcode" class="i"></i>
+            <span class="mono">${safeText(p.barcode || "—")}</span>
+          </span>
+
+          <span class="pill" title="Country of origin">
+            <i data-lucide="globe" class="i"></i>
+            ${safeText(p.origin || "—")}
+          </span>
+        </div>
+
+        <div class="pricePanel">
+          <div>
+            <div class="mutedLabel">Piece price</div>
+            <div class="price">
+              <i data-lucide="pound-sterling" class="i"></i>
+              ${moneyGBP(pr.piece)}
+            </div>
+          </div>
+
+          <div class="codeBox" title="Item code">
+            <div class="mutedLabel">Code</div>
+            <div class="mono codeVal">${safeText(p.code || "—")}</div>
+          </div>
+        </div>
+
+        <div class="actions actionsTight">
+          <button class="btn" type="button" data-dec-card="${p.id}" title="Decrease by inner case">
+            <i data-lucide="minus" class="i"></i>
+            <span class="hideSm">-${step}</span>
+          </button>
+
+          <div class="inCartPill">
+            <i data-lucide="shopping-cart" class="i"></i>
+            <div class="inCartText">
+              <div class="mutedMini">In cart</div>
+              <div class="inCartQty" data-incart="${p.id}">0</div>
+            </div>
+          </div>
+
+          <button class="btn primary" type="button" data-inc-card="${p.id}" title="Increase by inner case">
+            <i data-lucide="plus" class="i"></i>
+            <span class="hideSm">+${step}</span>
+          </button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
 
   function getCartQtyFor(id) {
     const KEY = getCartStorageKey_();

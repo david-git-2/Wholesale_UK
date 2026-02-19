@@ -62,7 +62,7 @@ window.BW_UK_ORDERS_API = (() => {
   const deleteItems = (orderId, barcodes) => post("uk_delete_items", { orderId, barcodes });
 
   const aggregateStockList = (stockListId, useShipped = true) =>
-    post("uk_admin_aggregate_stocklist", { stockListId, useShipped });
+    post("uk_admin_aggregate_details_stocklist", { stockListId, useShipped });
 
   return {
     post,
