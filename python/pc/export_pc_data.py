@@ -10,18 +10,17 @@ import openpyxl
 
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-from googleapiclient.errors import HttpError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DEFAULT_XLSX = os.path.join(ROOT_DIR, "pc", "data_file", "pc_data.xlsx")
-DEFAULT_OUT_JSON = os.path.join(ROOT_DIR, "docs", "pc_data.json")
-DEFAULT_OUT_IMAGES = os.path.join(ROOT_DIR, "pc", "out_images")
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+DEFAULT_XLSX = os.path.join(ROOT_DIR, "python", "pc", "data_file", "pc_data.xlsx")
+DEFAULT_OUT_JSON = os.path.join(ROOT_DIR, "docs", "uk", "data", "pc_data.json")
+DEFAULT_OUT_IMAGES = os.path.join(ROOT_DIR, "python", "pc", "out_images")
 
-CREDS_DIR = os.path.join(ROOT_DIR, "pc", "credentials")
+CREDS_DIR = os.path.join(ROOT_DIR, "python", "pc", "credentials")
 OAUTH_CLIENT_JSON = os.path.join(CREDS_DIR, "oauth_client.json")
 TOKEN_JSON = os.path.join(CREDS_DIR, "token.json")
 
@@ -139,7 +138,7 @@ def main():
     OUT_IMAGES_DIR = DEFAULT_OUT_IMAGES
 
     # Your Drive folder is already public (Anyone with link).
-    DRIVE_FOLDER_ID = "1Sji8cv1FZRCz3oxnBW0HQS2Wqe33vAPZ"
+    DRIVE_FOLDER_ID = "1s-DCoV7rkhLllBhTVOm2SZ7IlA0JmiEB"
 
     DEFAULT_HEADER_ROW = 4
     DEFAULT_IMAGE_COLUMN_INDEX = 14  # 1-based column index (14 = N)
@@ -156,6 +155,7 @@ def main():
         "\n"
         "📌 Excel format requirements:\n"
         "  Required columns in the HEADER ROW:\n"
+        "    - product_code\n"
         "    - barcode\n"
         "    - case_size\n"
         "    - name\n"
@@ -164,6 +164,9 @@ def main():
         "  Optional columns:\n"
         "    - country_of_origin\n"
         "    - brand\n"
+        "\n"
+        "🆔 Product ID:\n"
+        "  - product_id = product_code + '_' + barcode\n"
         "\n"
         "⚡ Speed mode enabled:\n"
         "  - Your Drive folder is already public → we will NOT set per-file permissions.\n"
@@ -209,7 +212,7 @@ def main():
         header_to_col.setdefault(nh, idx)
 
     # Required/optional columns
-    required = ["barcode", "case_size", "name", "price"]
+    required = ["product_code", "barcode", "case_size", "name", "price"]
     optional = ["country_of_origin", "brand"]
 
     missing_required = [c for c in required if c not in header_to_col]
@@ -218,16 +221,22 @@ def main():
             "❌ Missing required column(s) in header row "
             f"{HEADER_ROW}: {', '.join(missing_required)}\n"
             "Make sure your Excel header row contains these columns (case-insensitive):\n"
-            "barcode, case_size, name, price\n"
+            "product_code, barcode, case_size, name, price\n"
         )
 
     missing_optional = [c for c in optional if c not in header_to_col]
     if missing_optional:
         log(f"ℹ️ Optional column(s) missing (OK): {', '.join(missing_optional)}")
 
+    product_code_col = header_to_col["product_code"]
     barcode_col = header_to_col["barcode"]
+    log(f"✅ Found product_code column at index: {product_code_col}")
     log(f"✅ Found barcode column at index: {barcode_col}")
     log(f"🖼️ Using image column index: {IMAGE_COLUMN_INDEX}\n")
+
+    # Use actual header names (original casing/spaces) for row dict lookups
+    product_code_header_name = headers[product_code_col - 1]
+    barcode_header_name = headers[barcode_col - 1]
 
     # Read rows
     log("📦 Reading product rows...")
@@ -268,11 +277,15 @@ def main():
         if ext == "jpeg":
             ext = "jpg"
 
-        barcode_header_name = headers[barcode_col - 1]
-        barcode_val = products_by_row[row].get(barcode_header_name, "")
-        barcode_str = safe_filename(barcode_val if barcode_val is not None else f"row_{row}")
+        pc_val = products_by_row[row].get(product_code_header_name, "")
+        bc_val = products_by_row[row].get(barcode_header_name, "")
 
-        img_by_row[row] = (barcode_str, ext, img_bytes)
+        pc_str = safe_filename(pc_val if pc_val is not None else "NO_CODE")
+        bc_str = safe_filename(bc_val if bc_val is not None else f"row_{row}")
+
+        # Use product_code + barcode for uniqueness
+        img_key = f"{pc_str}_{bc_str}".strip("_")
+        img_by_row[row] = (img_key, ext, img_bytes)
 
     log(f"✅ Images matched to product rows: {len(img_by_row)}")
 
@@ -281,10 +294,10 @@ def main():
     used = defaultdict(int)
     local_path_by_row = {}
 
-    for i, (row, (barcode_str, ext, img_bytes)) in enumerate(img_by_row.items(), start=1):
-        used[barcode_str] += 1
-        suffix = f"_{used[barcode_str]}" if used[barcode_str] > 1 else ""
-        filename = f"{barcode_str}{suffix}.{ext}"
+    for i, (row, (img_key, ext, img_bytes)) in enumerate(img_by_row.items(), start=1):
+        used[img_key] += 1
+        suffix = f"_{used[img_key]}" if used[img_key] > 1 else ""
+        filename = f"{img_key}{suffix}.{ext}"
         local_path = os.path.join(OUT_IMAGES_DIR, filename)
 
         with open(local_path, "wb") as f:
@@ -319,7 +332,6 @@ def main():
     log(f"⬆️ Uploading {total} image(s) to Drive (parallel workers={MAX_WORKERS})...")
     up_start = time.perf_counter()
 
-    # Progress stats
     done = 0
     failed = 0
 
@@ -336,7 +348,6 @@ def main():
             finally:
                 done += 1
 
-                # progress print every 25 or at end
                 if done % 25 == 0 or done == total:
                     elapsed = time.perf_counter() - up_start
                     rate = (done / elapsed) if elapsed > 0 else 0.0
@@ -353,9 +364,22 @@ def main():
     # Build JSON (field names come from Excel header row)
     log("🧾 Building JSON payload...")
     products = []
+
     for row, obj in products_by_row.items():
         out = dict(obj)
+
+        pc_val = obj.get(product_code_header_name, "")
+        bc_val = obj.get(barcode_header_name, "")
+
+        pc_str = safe_filename(pc_val if pc_val is not None else "")
+        bc_str = safe_filename(bc_val if bc_val is not None else "")
+
+        # ✅ stable product id
+        out["product_id"] = f"{pc_str}_{bc_str}".strip("_")
+
+        # ✅ imageUrl (drive direct link)
         out["imageUrl"] = drive_url_by_row.get(row)
+
         products.append(out)
 
     payload = {
@@ -371,6 +395,7 @@ def main():
             "parallelWorkers": MAX_WORKERS,
             "driveFolderId": DRIVE_FOLDER_ID,
             "note": "Per-file permissions not set (folder is already public).",
+            "productIdRule": "product_id = product_code + '_' + barcode",
         },
         "products": products,
     }
